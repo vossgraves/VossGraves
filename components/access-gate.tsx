@@ -1,10 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { Loader2, Lock, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
-import { enterAdmin, enterPrivate } from '@/app/actions/access'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -18,7 +16,6 @@ import { Input } from '@/components/ui/input'
 type Mode = 'private' | 'admin'
 
 export function AccessGate() {
-  const router = useRouter()
   const [mode, setMode] = useState<Mode | null>(null)
   const [password, setPassword] = useState('')
   const [pending, startTransition] = useTransition()
@@ -52,13 +49,23 @@ export function AccessGate() {
     if (!password || !mode) return
     const current = mode
     startTransition(async () => {
-      const result = current === 'admin' ? await enterAdmin(password) : await enterPrivate(password)
-      if (!result.ok) {
-        toast.error(result.error)
-        return
+      try {
+        const response = await fetch('/api/access', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ mode: current, password }),
+        })
+        const result = (await response.json()) as { ok: boolean; error?: string }
+        if (!response.ok || !result.ok) {
+          toast.error(result.error ?? 'The access code is invalid or temporarily unavailable.')
+          return
+        }
+        setMode(null)
+        window.location.assign(current === 'admin' ? '/admin/main' : '/personal')
+      } catch {
+        toast.error('The access code is invalid or temporarily unavailable.')
       }
-      setMode(null)
-      router.push(current === 'admin' ? '/admin/main' : '/personal')
     })
   }
 
