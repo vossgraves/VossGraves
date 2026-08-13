@@ -1,9 +1,27 @@
-import { PersonalEditor } from "../../ui/admin-editor";
-import { getPersonalData } from "../../../lib/site";
+import { ContentEditor } from '@/components/content-editor'
+import { ProjectsSection } from '@/components/projects/projects-section'
+import { getProjects } from '@/app/actions/projects'
+import { getSiteContent } from '@/app/actions/site-content'
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic'
 
 export default async function AdminPersonalPage() {
-  const data = await getPersonalData();
-  return <main className="editor"><h1>Edit personal bio</h1><p className="editor-intro">This content is separate from the public table and appears only after personal-password verification.</p><PersonalEditor data={data} /></main>;
+  const [content, personalProjects] = await Promise.all([
+    getSiteContent(),
+    getProjects('personal'),
+  ])
+  if (!content) return null
+
+  return (
+    <div className="flex flex-col gap-10">
+      <ContentEditor content={content} scope="private" />
+
+      <ProjectsSection
+        title="Personal projects"
+        projects={personalProjects}
+        visibility="personal"
+        admin
+      />
+    </div>
+  )
 }

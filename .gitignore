@@ -1,11 +1,35 @@
-node_modules/
-.next/
-out/
+# v0 sandbox internal files
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
+
+# Vercel and deployment metadata
+.vercel/
+
+# Secrets and local environment files. Commit only .env.example.
 .env
 .env.*
 !.env.example
-npm-debug.log*
+*.pem
+*.key
+*.p12
+
+# Dependencies and generated outputs
+node_modules/
+.next/
+out/
+coverage/
+
+# Logs and local data
+*.log
+*.sqlite
+*.sqlite3
+
+# OS and editor noise
 .DS_Store
-*.tsbuildinfo
-.vercel/
+.idea/
 .vscode/
+
+*.tsbuildinfo

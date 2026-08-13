@@ -1,20 +1,21 @@
-import { exitAccess } from "../actions";
-import { requireScope } from "../../lib/auth";
+import { redirect } from 'next/navigation'
+import { hasAdminAccess } from '@/lib/access'
+import { AdminNav } from '@/components/admin-nav'
+import { Toaster } from '@/components/ui/sonner'
 
-export default async function AdminLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  await requireScope("admin");
-  return <div className="admin-shell">
-    <div className="admin-nav"><div className="container admin-nav-inner">
-      <a className="brand" href="/admin/main">Voss Graves admin</a>
-      <nav className="admin-nav-links" aria-label="Admin navigation">
-        <a className="chip" href="/admin/main">Public</a>
-        <a className="chip" href="/admin/personal">Personal</a>
-        <a className="chip" href="/admin/projects">Projects</a>
-        <a className="chip" href="/admin/questions">Questions</a>
-        <a className="chip" href="/personal">View private</a>
-        <form action={exitAccess}><button className="chip" type="submit">Sign out</button></form>
-      </nav>
-    </div></div>
-    <div className="container">{children}</div>
-  </div>;
+export const dynamic = 'force-dynamic'
+
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // Authoritative check: a valid, unexpired admin key must exist in the database.
+  if (!(await hasAdminAccess())) redirect('/')
+
+  return (
+    <>
+      <Toaster position="top-center" theme="dark" />
+      <main className="relative z-10 mx-auto min-h-dvh max-w-4xl px-4 py-8 sm:px-6">
+        <AdminNav />
+        {children}
+      </main>
+    </>
+  )
 }

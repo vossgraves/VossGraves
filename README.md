@@ -1,46 +1,44 @@
-# Voss Graves
+# vossed
 
-A recovered Next.js portfolio site with the original dark, particle-based visual direction, long-press access entry point, an admin editor, and a protected personal page. Public content, personal content, projects, questions, password hashes, sessions, and rate-limit records are deliberately separated in Neon.
+This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
 
-## What is preserved
+## Built with v0
 
-The public home page keeps the dark minimal aesthetic, animated particle field, radial lighting, the long-press name trigger, the time widget, project cards, social links, question form, and both admin and personal access modes. The particle field adapts to the device: it uses fewer particles, a lower capped pixel ratio, and a 30 FPS budget on lower-end hardware. It pauses in background tabs and becomes a static gradient when reduced motion is requested.
+This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
 
-## Security model
+[Continue working on v0 →](https://v0.app/chat/projects/prj_AYWbKURvQqJEE9TA8mw5tn8iVrtC)
 
-Passwords are **never** stored in the source code, client bundle, Git history going forward, or browser-accessible variables. Only Argon2id password hashes are kept in `auth_passwords`. Successful checks create 256-bit opaque, `HttpOnly`, `Secure` (production), `SameSite=Lax` session cookies. Session identifiers are SHA-256 hashed before they reach Neon and expire after 30 minutes by default. Failed login attempts are rate-limited by a hashed request address per access scope.
+## Getting Started
 
-> The two passwords shared in the task conversation should be replaced with new, unique values before production use. Do not add either value to `.env`, a commit, a Vercel build log, or this README.
-
-## Neon setup
-
-1. In the Neon SQL editor, run `db/schema.sql` once.
-2. Create a new random admin password and a new random personal password. Use a password manager rather than reusing the previously shared values.
-3. On a trusted computer, run `pnpm hash-password admin` and `pnpm hash-password personal`. Each command prints one `INSERT ... ON CONFLICT` query; run those queries in Neon. The plaintext input is not written to the project.
-4. In the Vercel project, set `DATABASE_URL` to the Neon pooled connection string for **Production**, **Preview**, and **Development**. Do not create a `NEXT_PUBLIC_DATABASE_URL` variable.
-5. Deploy. The public page will display fallback text if Neon is unreachable, while protected routes intentionally remain unavailable until the database is configured.
-
-## Development
+First, run the development server:
 
 ```bash
-pnpm install
-cp .env.example .env
-# Set DATABASE_URL only in your local .env file.
+npm run dev
+# or
+yarn dev
+# or
 pnpm dev
 ```
 
-Validate locally with:
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-```bash
-pnpm typecheck
-pnpm test:auth
-pnpm build
-```
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## Personal Vercel deployment
+## Learn More
 
-Import `Vossgraves/vossgraved.` into the personal Vercel account, select the repository root as the project root, add the `DATABASE_URL` variable, and deploy. Then add `vossgraves.cyou` in the project’s domain settings. Vercel will show the exact DNS record to keep or update at the domain registrar; wait until it shows the domain as verified before changing the production alias.
+To learn more, take a look at the following resources:
 
-## Repository policy
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
 
-The unrelated historical Polaris bot is retained under `legacy-polaris/` so the repository’s previous files are not silently destroyed. The live web app is at the repository root. Before the public push, run a full working-tree and Git-history secret scan. If an old secret is found in history, rotate it at the provider and use a history-rewrite tool before making the repository public.
+
+## Secure deployment notes
+
+This repository uses the uploaded Voss Graves customization as its canonical visual source. The original particle field, responsive sections, top navigation, content editor, project/file cards, Ask Me flow, and long-press access dialog are preserved.
+
+The database layer is server-only and uses Neon through `DATABASE_URL`. Apply `db/schema.sql` in Neon before enabling editing. Public profile rows and personal profile rows are stored separately, and public rendering never queries the personal tables. Project records carry a `public` or `personal` visibility and are protected by server-side authorization.
+
+Passwords are not read from browser code or plaintext environment variables. Generate Argon2id hashes locally with `pnpm hash-password admin` and `pnpm hash-password personal`, then run the generated SQL in Neon. The app stores only those hashes, verifies them server-side, rate-limits failed attempts, and issues opaque, hashed, revocable HttpOnly sessions. Do not commit generated SQL, password values, `.env` files, or Neon connection strings.
+
+For Vercel, add `DATABASE_URL` to the Personal project’s Production, Preview, and Development environments as needed. Keep the value server-only. The archive’s particle aesthetic remains enabled, but its canvas scales particle count, pixel density, and frame cadence for reduced-motion settings and lower-end devices.
