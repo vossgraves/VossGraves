@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { authenticate, authenticatePrivate } from "@/lib/access";
+import {
+  authenticateForRoute,
+  authenticatePrivateForRoute,
+  sessionCookieOptions,
+  SESSION_COOKIE,
+} from "@/lib/access";
 
 export const runtime = "nodejs";
 
@@ -26,11 +31,25 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = mode === "admin" ? await authenticate("admin", password) : await authenticatePrivate(password);
-    return NextResponse.json(result, {
-      status: result.ok ? 200 : 401,
-      headers: { "Cache-Control": "no-store" },
-    });
+    const result =
+      mode === "admin"
+        ? await authenticateForRoute("admin", password)
+        : await authenticatePrivateForRoute(password);
+    const response = NextResponse.json(
+      result.ok ? { ok: true } : { ok: false, error: result.error },
+      {
+        status: result.ok ? 200 : 401,
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
+    if (result.ok && result.session) {
+      response.cookies.set(
+        SESSION_COOKIE,
+        result.session.token,
+        sessionCookieOptions(result.session.expiresAt),
+      );
+    }
+    return response;
   } catch {
     return NextResponse.json(
       { ok: false, error: "The access code is invalid or temporarily unavailable." },

@@ -9,8 +9,9 @@ import { db } from "@/lib/db";
 export type AccessRole = "admin" | "private";
 type StoredScope = "admin" | "personal";
 type SessionRecord = { scope: StoredScope; expires_at: string | Date };
+export type SessionIssue = { token: string; expiresAt: Date };
 
-const SESSION_COOKIE = "vg_session";
+export const SESSION_COOKIE = "vg_session";
 const SESSION_TTL_SECONDS = Math.max(
   300,
   Number.parseInt(process.env.AUTH_SESSION_TTL_SECONDS ?? "1800", 10) || 1800,
@@ -25,6 +26,17 @@ function digest(value: string) {
 
 function newSessionToken() {
   return randomBytes(32).toString("base64url");
+}
+
+export function sessionCookieOptions(expiresAt: Date) {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: SESSION_TTL_SECONDS,
+    expires: expiresAt,
+  };
 }
 
 async function requestSubject() {
@@ -77,22 +89,21 @@ async function clearFailures(scope: StoredScope) {
   await sql`DELETE FROM auth_rate_limits WHERE scope = ${scope} AND subject_hash = ${subjectHash}`;
 }
 
-async function issueSession(scope: StoredScope) {
+async function createSession(scope: StoredScope): Promise<SessionIssue> {
   const token = newSessionToken();
   const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000);
   await db()`
     INSERT INTO auth_sessions (token_hash, scope, expires_at)
     VALUES (${digest(token)}, ${scope}, ${expiresAt})
   `;
+  return { token, expiresAt };
+}
+
+async function issueSession(scope: StoredScope) {
+  const session = await createSession(scope);
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_TTL_SECONDS,
-    expires: expiresAt,
-  });
+  cookieStore.set(SESSION_COOKIE, session.token, sessionCookieOptions(session.expiresAt));
+  return session;
 }
 
 async function verifyPassword(scope: StoredScope, password: string) {
@@ -106,7 +117,7 @@ async function verifyPassword(scope: StoredScope, password: string) {
   return Boolean(hash && (await argon2.verify(hash, password).catch(() => false)));
 }
 
-async function authenticateScope(scope: StoredScope, password: string) {
+async function authenticateScope(scope: StoredScope, password: string, setCookie: boolean) {
   if (!password || password.length > 256) {
     return { ok: false as const, error: GENERIC_FAILURE };
   }
@@ -118,35 +129,51 @@ async function authenticateScope(scope: StoredScope, password: string) {
     };
   }
   await clearFailures(scope);
-  await issueSession(scope);
-  return { ok: true as const };
+  const session = setCookie ? await issueSession(scope) : await createSession(scope);
+  return setCookie ? { ok: true as const } : { ok: true as const, session };
 }
 
-/** Authenticate with the administrator password only. */
-export async function authenticate(role: "admin", password: string) {
-  return authenticateScope(role, password);
-}
-
-/** Authenticate the private area. The administrator password intentionally also works here. */
-export async function authenticatePrivate(password: string) {
+async function authenticatePrivateInternal(password: string, setCookie: boolean) {
   if (!password || password.length > 256) {
     return { ok: false as const, error: GENERIC_FAILURE };
   }
   if (await verifyPassword("personal", password)) {
     await clearFailures("personal");
-    await issueSession("personal");
-    return { ok: true as const };
+    const session = setCookie ? await issueSession("personal") : await createSession("personal");
+    return setCookie ? { ok: true as const } : { ok: true as const, session };
   }
   if (await verifyPassword("admin", password)) {
     await clearFailures("personal");
-    await issueSession("admin");
-    return { ok: true as const };
+    const session = setCookie ? await issueSession("admin") : await createSession("admin");
+    return setCookie ? { ok: true as const } : { ok: true as const, session };
   }
   const blocked = await recordFailure("personal");
   return {
     ok: false as const,
     error: blocked ? "Too many attempts. Try again later." : GENERIC_FAILURE,
   };
+}
+
+/** Authenticate with the administrator password only. */
+export async function authenticate(role: "admin", password: string) {
+  const result = await authenticateScope(role, password, true);
+  return result.ok ? { ok: true as const } : result;
+}
+
+/** Authenticate the private area. The administrator password intentionally also works here. */
+export async function authenticatePrivate(password: string) {
+  const result = await authenticatePrivateInternal(password, true);
+  return result.ok ? { ok: true as const } : result;
+}
+
+/** Authenticate for a direct HTTP response so the caller can set the cookie on that response. */
+export async function authenticateForRoute(role: "admin", password: string) {
+  return authenticateScope(role, password, false);
+}
+
+/** Authenticate the private area for a direct HTTP response. */
+export async function authenticatePrivateForRoute(password: string) {
+  return authenticatePrivateInternal(password, false);
 }
 
 export async function getSession(): Promise<SessionRecord | null> {
@@ -184,10 +211,7 @@ export async function revokeAll() {
     await db()`DELETE FROM auth_sessions WHERE token_hash = ${digest(token)}`;
   }
   cookieStore.set(SESSION_COOKIE, "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
+    ...sessionCookieOptions(new Date(0)),
     maxAge: 0,
     expires: new Date(0),
   });
