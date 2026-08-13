@@ -1,4 +1,11 @@
-node_modules
-json/auto
+node_modules/
+.next/
+out/
 .env
-.vscode
+.env.*
+!.env.example
+npm-debug.log*
+.DS_Store
+*.tsbuildinfo
+.vercel/
+.vscode/
