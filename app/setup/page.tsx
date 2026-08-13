@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { ShieldCheck } from 'lucide-react'
+import { isPasswordSetupComplete } from '@/lib/setup'
 import { SetupForm } from './setup-form'
 
 export const metadata: Metadata = {
@@ -12,6 +13,7 @@ export const dynamic = 'force-dynamic'
 export default async function SetupPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
   const { token } = await searchParams
   const setupToken = token ?? ''
+  const setupComplete = setupToken ? await isPasswordSetupComplete() : false
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050505] px-5 py-12 text-white">
@@ -29,6 +31,14 @@ export default async function SetupPage({ searchParams }: { searchParams: Promis
         {!setupToken ? (
           <p className="rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white/75">
             This setup link is invalid or expired.
+          </p>
+        ) : setupComplete === true ? (
+          <p className="rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white/75">
+            Password setup is already complete. This link can no longer be used.
+          </p>
+        ) : setupComplete === null ? (
+          <p className="rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white/75">
+            Password setup is temporarily unavailable.
           </p>
         ) : (
           <>

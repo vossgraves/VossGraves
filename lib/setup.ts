@@ -96,4 +96,17 @@ export async function initializePasswords(
   }
 }
 
+export async function isPasswordSetupComplete(): Promise<boolean | null> {
+  try {
+    const rows = await db()`
+      SELECT COUNT(*)::int AS count
+      FROM auth_passwords
+    `;
+    const count = Number((rows[0] as { count: number | string } | undefined)?.count ?? 0);
+    return count > 0;
+  } catch {
+    return null;
+  }
+}
+
 export { MIN_PASSWORD_LENGTH };
